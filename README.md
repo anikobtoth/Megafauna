@@ -21,5 +21,3 @@ The main script is in Analysis_Script.R
 This file includes a source call to the helper functions file (Helper_functions.R).
 To reproduce the plots in the manuscript, use Plots_Script.R. 
 The Data objects needed for plotting are produced by Analysis_Script.R, so it needs to be run first.
-
-
