@@ -129,7 +129,7 @@ PA <- PA[c("MOD", "HOLO", "PLEI")]  # put time intervals in order.
   # Set parameters
   ss1 <- 60      # size of subsample for each repetition, must be less than min number of sites: min(map_int(PA, ncol))
   ss2 <- 10      # minimum number of mutual niche sites to be included (Mij)
-  reps <- 1000   # number of iterations
+  reps <- 20   # number of iterations
   
   # Calculate combined niche sites (Ni) 
   niche <- get_niche_table(sitebyspecies)
