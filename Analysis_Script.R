@@ -43,11 +43,11 @@ x[which(x$Epoch == "LPLE"),]$Epoch <- "PLEI"  #combine all Pleistocene sites int
 x[which(x$MaxAge <= hr),]$Epoch <- "MOD"      # Implement cutoff between Holocene and Recent
 
 PA <- split(x, x$Epoch) %>% 
-  map(dcast, formula = id~name, value.var = 'observed', fun.aggregate = length) %>%
-  map(namerows) %>% tobinary %>% map(as.data.frame) %>% map(t) #structure data
+  purrr::map(dcast, formula = id~name, value.var = 'observed', fun.aggregate = length) %>%
+  purrr::map(namerows) %>% tobinary() %>% purrr::map(as.data.frame) %>% purrr::map(base::t) #structure data
 
-PA <- map(PA, ~return(.[,which(colSums(.) >= co)]))    # remove sites with less than minimum species
-PA <- map(PA, ~return(.[which(rowSums(.) >= occ),]))   # remove species with no occurrences
+PA <- purrr::map(PA, ~return(.[,which(colSums(.) >= co)]))    # remove sites with less than minimum species
+PA <- purrr::map(PA, ~return(.[which(rowSums(.) >= occ),]))   # remove species with no occurrences
 
 PA <- PA[c("MOD", "HOLO", "PLEI")]  # put time intervals in order.
 
@@ -84,7 +84,7 @@ PA <- PA[c("MOD", "HOLO", "PLEI")]  # put time intervals in order.
     pairs <- bind_rows(list(SS=SS, EE=EE, SE=SE), .id = "type")
   
   #### Return PA data to long format ####
-    sitebyspecies <-  map(PA, as.matrix) %>% map(melt) %>% bind_rows(.id = "tbn") %>% filter(value == 1)
+    sitebyspecies <-  purrr::map(PA, as.matrix) %>% purrr::map(melt) %>% bind_rows(.id = "tbn") %>% filter(value == 1)
     names(sitebyspecies) <- c("tbn", "name", "id", "value")
     # Add climate data 
     sitebyspecies <- merge(sitebyspecies, fml.sitedat[,c("id","LATDD", "LONGDD", "DepositionalSystem", "MinAge", "MaxAge", "MeanAge", "MAP", "MAT", "bio15")], by = "id", all = T) %>% na.omit()
@@ -129,7 +129,7 @@ PA <- PA[c("MOD", "HOLO", "PLEI")]  # put time intervals in order.
   # Set parameters
   ss1 <- 60      # size of subsample for each repetition, must be less than min number of sites: min(map_int(PA, ncol))
   ss2 <- 10      # minimum number of mutual niche sites to be included (Mij)
-  reps <- 20   # number of iterations
+  reps <- 100   # number of iterations
   
   # Calculate combined niche sites (Ni) 
   niche <- get_niche_table(sitebyspecies)

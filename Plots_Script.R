@@ -11,7 +11,7 @@ pdf("Figures.pdf") #optional
   ###### MAIN TEXT ########
 #### FIGURE 1 ############
 # need : PA
-  oc <- map(PA, ~rowSums(.)/ncol(.)) %>% reduce(multimerge, by = 0, all = T)
+  oc <- purrr::map(PA, ~rowSums(.)/ncol(.)) %>% reduce(multimerge, by = 0, all = T)
   names(oc) <- c("Mod", "Holo", "Plei")
   
   par(mfrow = c(1,2), mar = c(3.5, 3.5, 0, 0.5), oma = c(0, 0, 1, 0), cex = 1.2)
