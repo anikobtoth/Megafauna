@@ -92,9 +92,7 @@ PA <- PA[c("MOD", "HOLO", "PLEI")]  # put time intervals in order.
     sitebyspecies$status[sitebyspecies$name %in% survivors] <- "survivor"
     sitebyspecies$status[sitebyspecies$name %in% extinct] <- "victim"
     sitebyspecies$name <- as.character(sitebyspecies$name)
-    # change timebin to factor
-    sitebyspecies$tbn <- factor(sitebyspecies$tbn, levels = c("MOD", "HOLO", "PLEI"))
-
+    
 
   #### Calculate Niche areas #####
     sv_geog <- sitebyspecies %>% filter(tbn == "PLEI") %>% split(.$status) %>% 
@@ -105,11 +103,9 @@ PA <- PA[c("MOD", "HOLO", "PLEI")]  # put time intervals in order.
       sv_clim$tbn <- "PLEI"
     ss_geog <- sitebyspecies %>% filter(status == "survivor") %>% split(.$tbn) %>% 
       purrr::map(niche_areas, type = "geog") %>% bind_rows(.id = 'tbn')
-      ss_geog$tbn <- factor(ss_geog$tbn, levels = c("MOD", "HOLO", "PLEI"))
       ss_geog$status <- "survivor"
     ss_clim <- sitebyspecies %>% filter(status == "survivor") %>% split(.$tbn) %>% 
       purrr::map(niche_areas, type = "climate") %>% bind_rows(.id = 'tbn')
-      ss_clim$tbn <- factor(ss_clim$tbn, levels = c("MOD", "HOLO", "PLEI"))
       ss_clim$status <- "survivor"
 
  

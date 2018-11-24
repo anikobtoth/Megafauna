@@ -31,7 +31,7 @@ pdf("Figures.pdf") #optional
   names(n) <- c("Pleistocene_geographic range", "Pleistocene_climatic niche", "Survivor_geographic range", "Survivor_climatic niche")
   n <- bind_rows(n, .id = "group")
   n <- strsplit(n$group, fixed = TRUE, split = "_") %>% reduce(rbind) %>% data.frame(n)
-  n$tbn <- factor(n$tbn, levels = c("MOD", "HOLO", "PLEI"))
+  #n$tbn <- factor(n$tbn, levels = c("MOD", "HOLO", "PLEI"))
   n$group <- paste(n$tbn, n$status, sep = "-")
   n$group <- factor(n$group, levels = c("MOD-survivor", "HOLO-survivor","PLEI-survivor","PLEI-victim"))
 
