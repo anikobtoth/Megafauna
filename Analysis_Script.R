@@ -84,16 +84,14 @@ PA <- PA[c("MOD", "HOLO", "PLEI")]  # put time intervals in order.
     pairs <- bind_rows(list(SS=SS, EE=EE, SE=SE), .id = "type")
   
   #### Return PA data to long format ####
-    sitebyspecies <-  purrr::map(PA, as.matrix) %>% purrr::map(melt) %>% bind_rows(.id = "tbn") %>% filter(value == 1)
-    names(sitebyspecies) <- c("tbn", "name", "id", "value")
+    sitebyspecies <-  purrr::map(PA, as.matrix) %>% purrr::map(melt) %>% bind_rows(.id = "tbn") %>% filter(value == 1) %>% setNames(c("tbn", "name", "id", "value"))
     # Add climate data 
     sitebyspecies <- merge(sitebyspecies, fml.sitedat[,c("id","LATDD", "LONGDD", "DepositionalSystem", "MinAge", "MaxAge", "MeanAge", "MAP", "MAT", "bio15")], by = "id", all = T) %>% na.omit()
     # Add species status data
     sitebyspecies$status[sitebyspecies$name %in% survivors] <- "survivor"
     sitebyspecies$status[sitebyspecies$name %in% extinct] <- "victim"
-    sitebyspecies$name <- as.character(sitebyspecies$name)
-    
 
+    
   #### Calculate Niche areas #####
     sv_geog <- sitebyspecies %>% filter(tbn == "PLEI") %>% split(.$status) %>% 
       purrr::map(niche_areas, typ = "geog") %>% bind_rows(.id = 'status')

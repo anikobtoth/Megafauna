@@ -31,7 +31,6 @@ pdf("Figures.pdf") #optional
   names(n) <- c("Pleistocene_geographic range", "Pleistocene_climatic niche", "Survivor_geographic range", "Survivor_climatic niche")
   n <- bind_rows(n, .id = "group")
   n <- strsplit(n$group, fixed = TRUE, split = "_") %>% reduce(rbind) %>% data.frame(n)
-  #n$tbn <- factor(n$tbn, levels = c("MOD", "HOLO", "PLEI"))
   n$group <- paste(n$tbn, n$status, sep = "-")
   n$group <- factor(n$group, levels = c("MOD-survivor", "HOLO-survivor","PLEI-survivor","PLEI-victim"))
 
@@ -50,7 +49,7 @@ pdf("Figures.pdf") #optional
   
   p1 <- ggplot(n[n$X2 == "geographic range",], aes(x = chull.area, fill = group, col = group)) +
         specs +
-        geom_hline(color = "white", yintercept = 0, size = 1.4, aes(y = 0, xmin = 0, xmax = 1e07)) + 
+        geom_hline(color = "white", yintercept = 0, size = 1.4, aes(y = 0, xmin = 0, xmax = 9e06)) + 
         theme(legend.position = "none") +
     labs(fill = NULL, col = NULL, x = "Geographic Range (square km)") +
     expand_limits(x = 1.3e07) + 
@@ -58,7 +57,7 @@ pdf("Figures.pdf") #optional
   
   p2 <- ggplot(n[n$X2 == "climatic niche",], aes(x = chull.area, fill = group, col = group)) +
         specs + 
-        geom_hline(color = "white", yintercept = 0, size = 1.4, aes(y = 0, xmin = 0, xmax = 21000)) + 
+        geom_hline(color = "white", yintercept = 0, size = 1.4, aes(y = 0, xmin = 0, xmax = 20000)) + 
         theme(legend.position = c(0.7, 0.9),
           legend.background = element_blank()) +
     labs(fill = NULL, col = NULL, x = "Climatic Niche (mm x degrees C)") +
