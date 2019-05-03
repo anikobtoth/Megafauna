@@ -1,5 +1,5 @@
-# _______________ End-Pleistocene extinction caused a fundamental ________________#
-#________________ shift in mammal survivor community structure ________________ #
+# _______________ Reorganization of surviving mammal communities ________________#
+#________________ after end-Pleistocene megafaunal extinction ________________ #
 
 #________________ Script to replicate analyses   ________________ #
 #________________     by Anikó B. Tóth    ________________ #
