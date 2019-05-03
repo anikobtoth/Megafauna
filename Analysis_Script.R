@@ -10,6 +10,7 @@
   # such as minimum site richness (co) and subsample size (ss1), among others.
 
 ######## Environment ################
+library(combinat)
 library(tidyverse)
 library(reshape2)
 
@@ -56,7 +57,7 @@ PA <- PA[c("MOD", "HOLO", "PLEI")]  # put time intervals in order.
   load("Data/sitedat_clim1-4k_mm1-5.Rdata") # this file contains climate data for each site based on various averages.
   
   # sd.clim1k: 1ky average based on site mean age
-  # sd.clim2k to 4k: multi thousand year average based on mean age and the next youngest one to three 1k layer
+  # sd.clim2k to 4k: multi thousand year average based on mean age and the next youngest one to three layers
   # sd.mm1 - 5: 1ky average based on the minimum or maximum age of sites, chosen randomly. Five random iterations are included. 
   
   # Results presented in the main text use sd.clim1k. 
@@ -72,43 +73,96 @@ PA <- PA[c("MOD", "HOLO", "PLEI")]  # put time intervals in order.
     extinct <- rownames(PA[[3]])[which(!rownames(PA[[3]]) %in% survivors)]
     
     # survivor-survivor pairs
-    SS <- data.frame(pair = map2_chr(t(combn(survivors, 2))[,1], t(combn(survivors, 2))[,2], paste, sep = "-")) 
-    
+    SS <- t(combn(survivors, 2))
+    SS <- data.frame(pair = c(map2_chr(SS[,1], SS[,2], paste, sep = "-"), map2_chr(SS[,2], SS[,1], paste, sep = "-"))) 
+     
     # extinct-extinct pairs
-    EE <- data.frame(pair = map2_chr(t(combn(extinct, 2))[,1], t(combn(extinct, 2))[,2], paste, sep = "-")) 
-    
+    EE <- t(combn(extinct, 2))
+    EE <- data.frame(pair = c(map2_chr(EE[,1], EE[,2], paste, sep = "-"), map2_chr(EE[,2], EE[,1], paste, sep = "-")) )
+     
     # survivor-extinct pairs
-    SE <-data.frame(pair = map2_chr(t(combn(c(survivors, extinct), 2))[,1], t(combn(c(survivors, extinct), 2))[,2], paste, sep = "-")) 
-    SE <- SE[!SE %in% SS & !SE %in% EE]
+    SE <- t(combn(c(survivors, extinct), 2))
+    SE <-data.frame(pair = c(map2_chr(SE[,1], SE[,2], paste, sep = "-"), map2_chr(SE[,2], SE[,1], paste, sep = "-")))
+    SE <- data.frame(pair = SE[!SE$pair %in% SS$pair & !SE$pair %in% EE$pair,])
     
     pairs <- bind_rows(list(SS=SS, EE=EE, SE=SE), .id = "type")
-  
+    
   #### Return PA data to long format ####
-    sitebyspecies <-  purrr::map(PA, as.matrix) %>% purrr::map(melt) %>% bind_rows(.id = "tbn") %>% filter(value == 1) %>% setNames(c("tbn", "name", "id", "value"))
+    sitebyspecies <-  map(PA, as.matrix) %>% map(melt) %>% bind_rows(.id = "tbn") %>% filter(value == 1) %>% setNames(c("tbn", "name", "id", "value"))
     # Add climate data 
-    sitebyspecies <- merge(sitebyspecies, fml.sitedat[,c("id","LATDD", "LONGDD", "DepositionalSystem", "MinAge", "MaxAge", "MeanAge", "MAP", "MAT", "bio15")], by = "id", all = T) %>% na.omit()
+    sitebyspecies <- merge(sitebyspecies, fml.sitedat[,c("id","LATDD", "LONGDD", "DepositionalSystem", "MinAge", "MaxAge", "MeanAge", "MAP", "MAT", "bio4", "bio15")], by = "id", all = T) %>% na.omit()
     # Add species status data
     sitebyspecies$status[sitebyspecies$name %in% survivors] <- "survivor"
     sitebyspecies$status[sitebyspecies$name %in% extinct] <- "victim"
 
+    #Change coordinates to equal area
+    equal.area <- SpatialPoints(sitebyspecies[,c("LONGDD", "LATDD")], proj4string = CRS("+proj=longlat +ellps=WGS84 +datum=WGS84")) %>%
+      spTransform(CRS("+proj=laea +lat_0=45 +lon_0=-100 +x_0=0 +y_0=0 +a=6370997 +b=6370997 +units=m +no_defs")) %>%
+      data.frame() %>% setNames(c("laea.long", "laea.lat"))
     
+    sitebyspecies <- cbind(sitebyspecies, equal.area)
+    
+    # Square root transform precipitation variables
+    sitebyspecies$MAP <- sqrt(sitebyspecies$MAP)
+    sitebyspecies$bio15 <- sqrt(sitebyspecies$bio15)
+    
+    #z-transform all abiotic variables
+    sitebyspecies.z <- sitebyspecies
+    abvar <- c("MAP", "MAT", "bio4", "bio15", "laea.long", "laea.lat")
+    sitebyspecies.z[,abvar] <- apply(sitebyspecies.z[,abvar], 2, scale)
+    
+  #### site table
+    sites <- sitebyspecies.z %>% dplyr::select(id, tbn, laea.lat, laea.long, MAP, MAT, bio4, bio15, MeanAge, MinAge, MaxAge) %>% unique()
+  
   #### Calculate Niche areas #####
-    sv_geog <- sitebyspecies %>% filter(tbn == "PLEI") %>% split(.$status) %>% 
-      purrr::map(niche_areas, typ = "geog") %>% bind_rows(.id = 'status')
-      sv_geog$tbn <- "PLEI"
-    sv_clim <- sitebyspecies %>% filter(tbn == "PLEI") %>% split(.$status) %>% 
-      purrr::map(niche_areas, typ = "climate") %>% bind_rows(.id = 'status')
-      sv_clim$tbn <- "PLEI"
-    ss_geog <- sitebyspecies %>% filter(status == "survivor") %>% split(.$tbn) %>% 
-      purrr::map(niche_areas, type = "geog") %>% bind_rows(.id = 'tbn')
-      ss_geog$status <- "survivor"
-    ss_clim <- sitebyspecies %>% filter(status == "survivor") %>% split(.$tbn) %>% 
-      purrr::map(niche_areas, type = "climate") %>% bind_rows(.id = 'tbn')
-      ss_clim$status <- "survivor"
-
- 
-### Simple co-occurrence analysis with subsampling #### 
-  # not presented in paper except in Fig. S6 to contrast randomization tests
+    # OPTION 1: with hypervolumes
+    
+      # # total hypervolume by timebin
+     h.geog <- sites %>% split(.$tbn) %>% map(select,laea.lat, laea.long) %>% map(hypervolume_svm) #map(~.[sample(1:nrow(.), size = 60),]) %>%
+     h.clim <- sites %>% split(.$tbn) %>% map(select, MAP, MAT, bio4, bio15) %>% map(hypervolume_svm) #map(~.[sample(1:nrow(.), size = 60),]) %>%
+     
+      # niche hypervolume and proportion of total hypervolume by species
+     hvs.geog <- sitebyspecies.z %>% split(.$tbn) %>% map(get_hypervolume, dims = c("laea.lat", "laea.long"))
+     hvs.clim <- sitebyspecies.z %>% split(.$tbn) %>% map(get_hypervolume, dims = c("MAP", "MAT", "bio4", "bio15"))
+     
+     v.geog <- hvs.geog %>% map(map_dbl, ~.@Volume) %>% map(data.frame) %>% 
+       map(function(x) data.frame(name = rownames(x), x)) %>% bind_rows(.id = "tbn") %>%
+       setNames(c("tbn", "name", "volume"))
+     v.geog$fill <- v.geog$volume/rep(map_dbl(h.geog, ~.@Volume), times = table(v.geog$tbn))
+     
+     v.clim <- hvs.clim %>% map(map_dbl, ~.@Volume) %>% map(data.frame) %>% 
+       map(function(x) data.frame(name = rownames(x), x)) %>% bind_rows(.id = "tbn") %>%
+       setNames(c("tbn", "name", "volume"))
+     v.clim$fill <- v.clim$volume/rep(map_dbl(h.clim, ~.@Volume), times = table(v.clim$tbn))
+   
+    # OPTION 2: with convex hulls
+    
+      # total area by timebin
+    ch_geog <- sitebyspecies.z %>% split(.$tbn) %>% map(find_hull.geog) %>% map(select, laea.long, laea.lat) %>% map(Polygon, hole=F) %>% map_dbl(function(x) x@area)
+    ch_clim <- sitebyspecies.z %>% split(.$tbn) %>%  map(find_hull.clim) %>% map(select, MAP, MAT) %>% map(Polygon, hole=F) %>% map_dbl(function(x) x@area)
+    ch_seas <- sitebyspecies.z %>% split(.$tbn) %>% map(find_hull.seas) %>% map(select, bio4, bio15) %>% map(Polygon, hole=F) %>% map_dbl(function(x) x@area)
+    
+      # niche area and proportion of total area by species
+    ssv_geog <- sitebyspecies.z %>% split(interaction(.$tbn, .$status)) %>% 
+      purrr::map(niche_areas, type = "geog") %>% bind_rows(.id = 'group')
+    ssv_geog <- strsplit(ssv_geog$group, fixed = TRUE, split = ".") %>% 
+      reduce(rbind) %>% data.frame(ssv_geog) %>% setNames(c("tbn", "status", "group", "name", "chull.area"))
+    ssv_geog$fill = ssv_geog$chull.area / rep(ch_geog, times = table(ssv_geog$tbn))
+    
+    ssv_clim <- sitebyspecies.z %>% split(interaction(.$tbn, .$status)) %>% 
+      purrr::map(niche_areas, type = "climate") %>% bind_rows(.id = 'group')
+    ssv_clim <- strsplit(ssv_clim$group, fixed = TRUE, split = ".") %>% 
+      reduce(rbind) %>% data.frame(ssv_clim) %>% setNames(c("tbn", "status", "group", "name", "chull.area"))
+    ssv_clim$fill = ssv_clim$chull.area / rep(ch_clim, times = table(ssv_clim$tbn))
+    
+    ssv_seas <- sitebyspecies.z %>% split(interaction(.$tbn, .$status)) %>% 
+      purrr::map(niche_areas, type = "seas") %>% bind_rows(.id = 'group')
+    ssv_seas <- strsplit(ssv_seas$group, fixed = TRUE, split = ".") %>% 
+      reduce(rbind) %>% data.frame(ssv_seas) %>% setNames(c("tbn", "status", "group", "name", "chull.area"))
+    ssv_seas$fill = ssv_seas$chull.area / rep(ch_seas, times = table(ssv_seas$tbn))
+    
+### Co-occurrence analysis with subsampling #### 
+  # not presented in paper except in Fig. S9 to contrast randomization tests
   rps = 100 #number of subsamples
   ss1 = 60 # subsample size, must be less than minimum number of sites: min(map_int(PA, ncol))
   
@@ -125,8 +179,16 @@ PA <- PA[c("MOD", "HOLO", "PLEI")]  # put time intervals in order.
   ss2 <- 10      # minimum number of mutual niche sites to be included (Mij)
   reps <- 100   # number of iterations
   
-  # Calculate combined niche sites (Ni) 
-  niche <- get_niche_table(sitebyspecies)
+  # Calculate combined niche sites (use only ONE of the two options below)
+    # OPTION 1: with hypervolumes
+  niche.geog <- get_niche_table_hypervolume(sitebyspecies.z, dims = c("laea.lat", "laea.long"), min.occ = 4) 
+  niche.clim <- get_niche_table_hypervolume(sitebyspecies.z, dims = c("MAP", "MAT", "bio4", "bio15"), min.occ = 4)
+  niche <- niche.geog[sort(rownames(niche.geog)),] + niche.clim[sort(rownames(niche.clim)),]
+  niche[niche==1] <- 0
+  niche[niche==2] <- 1
+  
+    # OPTION 2: with convex hulls
+  niche <- get_niche_table_6D(sitebyspecies)
   
   # Calculate biotic/abiotic components
   out <- list()

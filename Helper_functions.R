@@ -1,9 +1,10 @@
 #__________ Helper functions ______________________
 #__________ by Anikó B. Tóth ______________________
 
-
-require(tidyverse)
 require(sp)
+require(hypervolume)
+require(tidyverse)
+
 
 ############### DATA MANIPULATION #########
 # replaces the rownames of the data frame with the first column of that df.
@@ -64,21 +65,27 @@ flat2 <- function(list2, layer1, layer2){
 ########### ANALYSIS FUNCTIONS ###########
 # Convex hull calculation based on climate or biogeography 
 find_hull.clim <- function(df) df[chull(df$MAP, df$MAT), ]
-find_hull.geog <- function(df) df[chull(df$LATDD, df$LONGDD), ]
+find_hull.geog <- function(df) df[chull(df$laea.lat, df$laea.long), ]
+find_hull.seas <- function(df) df[chull(df$bio4, df$bio15), ]
 
-# Calculates the convex hull areas of each species occupancies in geographic ("geog") or climatic ("climate") space
+# Calculates the convex hull areas of each species occupancies in geographic ("geog"), seasonality ("seas"), or climatic ("climate") space
 niche_areas <- function(sitebyspecies, type = "geog"){
-  if(!type %in% c("geog","climate")) stop("invalid type")
+  if(!type %in% c("geog","climate", "seas")) stop("invalid type")
   if(type == "geog"){
     hulls <- lapply(unique(sitebyspecies$name), function(x) return(find_hull.geog(sitebyspecies[sitebyspecies$name==x,])))
-    hulls <- lapply(hulls, function(x) return(cbind(x$LONGDD, x$LATDD)))
-    hulls <- lapply(hulls, SpatialPoints, proj4string = CRS("+proj=longlat +ellps=WGS84 +datum=WGS84"))
-    hulls <- lapply(hulls, spTransform, CRS("+proj=laea +lat_0=45 +lon_0=-100 +x_0=0 +y_0=0 +a=6370997 +b=6370997 +units=m +no_defs"))
+    hulls <- lapply(hulls, function(x) return(cbind(x$laea.long, x$laea.lat)))
+    #$hulls <- lapply(hulls, SpatialPoints, proj4string = CRS("+proj=longlat +ellps=WGS84 +datum=WGS84"))
+    #hulls <- lapply(hulls, spTransform, CRS("+proj=laea +lat_0=45 +lon_0=-100 +x_0=0 +y_0=0 +a=6370997 +b=6370997 +units=m +no_defs"))
     chull.poly <- lapply(hulls, Polygon, hole=F) #will throw warnings for polygons with 3 or fewer vertices
-    chull.area <- sapply(chull.poly, function(x) x@area/1e6)} #convert to km2
+    chull.area <- sapply(chull.poly, function(x) x@area)}
   if(type == "climate"){
     hulls <- lapply(unique(sitebyspecies$name), function(x) return(find_hull.clim(sitebyspecies[sitebyspecies$name==x,])))
     hulls <- lapply(hulls, function(x) return(cbind(x$MAP, x$MAT)))
+    chull.poly <- lapply(hulls, Polygon, hole=F) #will throw warnings for polygons with 3 or fewer vertices
+    chull.area <- sapply(chull.poly, function(x) x@area)}
+  if(type == "seas"){
+    hulls <- lapply(unique(sitebyspecies$name), function(x) return(find_hull.seas(sitebyspecies[sitebyspecies$name==x,])))
+    hulls <- lapply(hulls, function(x) return(cbind(x$bio4, x$bio15)))
     chull.poly <- lapply(hulls, Polygon, hole=F) #will throw warnings for polygons with 3 or fewer vertices
     chull.area <- sapply(chull.poly, function(x) x@area)
   }
@@ -88,25 +95,54 @@ niche_areas <- function(sitebyspecies, type = "geog"){
   chull.area
 }
 
-# Produces estimated combined niche Ni for each species, returned as a presence-absence table
+# Produces estimated potential range for each species, returned as a presence-absence table
 # 1's indicate that species is present or that site parameters match species dispersal ability and environmental preferences.
-get_niche_table <- function(sitebyspecies){
+get_niche_table_6D <- function(sitebyspecies){
   hulls.clim <- lapply(unique(sitebyspecies$name), function(x) return(find_hull.clim(sitebyspecies[sitebyspecies$name==x,])))
   hulls.geog <- lapply(unique(sitebyspecies$name), function(x) return(find_hull.geog(sitebyspecies[sitebyspecies$name==x,])))
+  hulls.seas <- lapply(unique(sitebyspecies$name), function(x) return(find_hull.seas(sitebyspecies[sitebyspecies$name==x,])))
   
-  sites <- unique(sitebyspecies[,c('id', "MAP", "MAT", "LATDD", "LONGDD")])
+  sites <- unique(sitebyspecies[,c('id', "MAP", "MAT", "laea.lat", "laea.long", "bio4", "bio15")])
   require(sp)
   niche.clim <- do.call(rbind, lapply(hulls.clim, function(x) point.in.polygon(sites$MAT, sites$MAP, x$MAT, x$MAP, mode.checked=FALSE)))
-  niche.geog <- do.call(rbind, lapply(hulls.geog, function(x) point.in.polygon(sites$LATDD, sites$LONGDD, x$LATDD, x$LONGDD, mode.checked=FALSE)))
+  niche.geog <- do.call(rbind, lapply(hulls.geog, function(x) point.in.polygon(sites$laea.lat, sites$laea.long , x$laea.lat, x$laea.long, mode.checked=FALSE)))
+  niche.seas <- do.call(rbind, lapply(hulls.seas, function(x) point.in.polygon(sites$bio4, sites$bio15, x$bio4, x$bio15, mode.checked=FALSE)))
+  
   niche.clim <- tobinary(list(niche.clim))[[1]]
   niche.geog <- tobinary(list(niche.geog))[[1]]
-  niche <- niche.clim + niche.geog
+  niche.seas <- tobinary(list(niche.seas))[[1]]
+  
+  niche <- niche.clim + niche.geog + niche.seas
   colnames(niche) <- sites$id
   rownames(niche) <- unique(sitebyspecies$name)
   
   niche[niche==1] <- 0
-  niche[niche==2] <- 1
+  niche[niche==2] <- 0
+  niche[niche==3] <- 1
   niche
+}
+
+### Produces estimated potential range for each species using hypervolumes (column containing species id must be called "name")
+### species with fewer than min.occ observations are returned with their original occurrences only. 
+# occtable is a table of occurrences by site, long format, with environmental data 
+get_niche_table_hypervolume <- function(occtable, dims = c("MAP", "MAT", "laea.long", "laea.lat"), min.occ = 4){  
+  yes <- occtable %>% split(.$name) %>% map(~apply(.[dims], 2, function(x) length(unique(x)))) %>% map_dbl(min) %>% `>`(min.occ) %>% which() %>% names()
+  no <- occtable %>% split(.$name) %>%  map(~apply(.[dims], 2, function(x) length(unique(x)))) %>% map_dbl(min) %>% `<=`(min.occ) %>% which() %>% names()
+  lowocc <- occtable[occtable$name %in% no,]
+  lowocc <- dcast(lowocc, id~name, value.var = "value", fun.aggregate = max, fill = 0) %>% namerows()
+  occtable <- occtable[occtable$name %in% yes,] 
+  # make hypervolumes
+  hvs <- lapply(unique(occtable$name), function(x) return(hypervolume_svm(occtable[occtable$name==x,dims]))) %>% 
+    setNames(unique(occtable$name))
+  sites <- unique(occtable[,c('id', dims)])
+  # inclusion test
+  niche <- map(hvs, hypervolume_inclusion_test,  points = sites[,dims], fast.or.accurate = "accurate") %>% 
+    map(as.numeric) %>% data.frame()
+  rownames(niche) <- sites$id
+  # add in species with too few observations to make hypervolume
+  niche <- merge(lowocc, niche, by=0, all = T) %>% namerows() 
+  niche[is.na(niche)] <- 0 
+  return(t(niche))
 }
 
 

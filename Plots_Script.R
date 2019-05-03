@@ -9,7 +9,7 @@ require(cowplot)
 
 pdf("Figures.pdf") #optional
 
-  ###### MAIN TEXT ########
+###### MAIN TEXT ########
 #### FIGURE 1 ############
 # need : PA
   oc <- purrr::map(PA, ~rowSums(.)/ncol(.)) %>% reduce(multimerge, by = 0, all = T)
@@ -28,49 +28,29 @@ pdf("Figures.pdf") #optional
 
 #### FIGURE 2 ##########
 #arrange niche area results for plotting   
-  n <- list(sv_geog, sv_clim, ss_geog, ss_clim) 
-  names(n) <- c("Pleistocene_geographic range", "Pleistocene_climatic niche", "Survivor_geographic range", "Survivor_climatic niche")
-  n <- bind_rows(n, .id = "group")
-  n <- strsplit(n$group, fixed = TRUE, split = "_") %>% reduce(rbind) %>% data.frame(n)
-  n$group <- paste(n$tbn, n$status, sep = "-")
-  n$group <- factor(n$group, levels = c("MOD-survivor", "HOLO-survivor","PLEI-survivor","PLEI-victim"))
+  v <- list("Geographic niches" = v.geog, "Climatic niches" = v.clim) %>% bind_rows(.id = "variables")
+  v$status <- v$name %in% survivors
+  v$status[v$status] <- "survivor"
+  v$status[v$status== FALSE] <- "extinct"
+  v$group <- interaction(v$tbn, v$status)
+  v$group <- factor(v$group, levels = c("MOD.survivor", "HOLO.survivor", "PLEI.survivor", "PLEI.extinct"))
+  
+  # fill
+  ggplot(v, aes(x = fill, col = group, fill = group)) + geom_density(alpha = 0.3, size = 1) +
+    facet_grid(variables~., scales = "free") + xlim(c(0, 1)) + 
+    panel_border(remove = FALSE, col = "black") +
+    labs(x = "Proportion of available hypervolume", y = "Probability density") +
+    scale_colour_manual(values = c("seagreen3", "dodgerblue", "darkslateblue", "gray20"), labels = c("Recent survivor", "Holocene survivor", "Pleistocene survivor", "Pleistocene extinct")) + 
+    scale_fill_manual(values = c("seagreen3", "dodgerblue", "darkslateblue", "gray20"), labels = c("Recent survivor", "Holocene survivor", "Pleistocene survivor", "Pleistocene extinct")) +
+    theme(strip.text = element_text(margin = margin(.1, .1, .1, .1, "cm")), 
+          legend.position = c(0.32, 0.85), 
+          legend.background = element_rect(fill = "gray85")) +
+    panel_border(remove = FALSE, col = "black") +
+    annotate("text", label = c("A", "B"), size = 4, x = Inf, y = Inf, hjust = 2, vjust = 2, fontface = 2)
 
-# plots 
-  specs <- list(geom_density(alpha = 0.4, trim = FALSE, adjust = .8), 
-                facet_wrap(~X1, scales = "free_y", shrink = FALSE, ncol = 1),
-                scale_fill_manual(values = c("seagreen3", "dodgerblue", "darkslateblue", "gray35"), labels = c("Recent", "Holocene", "Pleistocene survivor", "Pleistocene victim")),
-                scale_color_manual(values = c("seagreen3", "dodgerblue", "darkslateblue", "gray35"), labels = c("Recent", "Holocene", "Pleistocene survivor", "Pleistocene victim")),
-                scale_y_continuous(labels = function(x) format(x, scientific = TRUE)),
-                theme(panel.background = element_rect(fill = NA, color = "black"), 
-                      axis.title.x = element_text(size = 12),
-                      axis.text.y = element_text(size = 8),
-                      panel.grid = element_blank(),
-                      text = element_text(size = 12)))
-  
-  p1 <- ggplot(n[n$X2 == "geographic range",], aes(x = chull.area, fill = group, col = group)) +
-        specs +
-        geom_hline(color = "white", yintercept = 0, size = 1.4, aes(y = 0, xmin = 0, xmax = 9e06)) + 
-        theme(legend.position = "none", axis.text.y = element_text(angle = 90)) +
-    labs(fill = NULL, col = NULL, x = "Geographic Range (square km)", y = "Relative frequency") +
-    expand_limits(x = 1.3e07) + 
-    annotate("text", label = c("A", "C"), size = 4, x = Inf, y = Inf, hjust = 2, vjust = 2) + 
-    panel_border(remove = FALSE, colour = "black")
-  
-  p2 <- ggplot(n[n$X2 == "climatic niche",], aes(x = chull.area, fill = group, col = group)) +
-        specs + 
-        geom_hline(color = "white", yintercept = 0, size = 1.4, aes(y = 0, xmin = 0, xmax = 20000)) + 
-        theme(axis.text.y = element_text(angle = 90), 
-              axis.title.y = element_blank(),
-          legend.background = element_blank()) +
-    labs(fill = NULL, col = NULL, x = "Climatic Niche (mm x degrees C)") +
-    expand_limits(x = 23000) +
-    annotate("text", label = c("B", "D"), size = 4, x = Inf, y = Inf, hjust = 2, vjust = 2) +
-    panel_border(remove = FALSE, colour = "black")  
-  
-  p <- plot_grid(p1, p2+theme(legend.position = "none"), ncol = 2, align = "h", axis = "rl")
-  plot_grid(p, get_legend(p2), ncol = 2, rel_widths = c(4,1) )
-  
-#### FIGURE 3 ############
+#### FIGURE 3 ###########
+  # Fig 3A
+  out$timebin <- as.character(out$timebin)
   out.SS <- out[out$type == "SS",]
   out2.SS <- out.SS[out.SS$num >= ss2,]
   
@@ -95,14 +75,15 @@ pdf("Figures.pdf") #optional
     theme(legend.position = "none", strip.text = element_text(size = 12), 
           axis.title.y = element_text(size = 12), 
           axis.text = element_text(size = 12), 
-          axis.text.x = element_text(angle = 30, hjust = 1)) +
+          axis.text.x = element_text(angle = 30, hjust = 1),
+          panel.background = element_rect(fill = NA)) +
     labs(y = "Proportion", x = "") +
-    annotate("text", label = c("A", "B", "C", "D", "E", "F"), size = 4, x = Inf, y = Inf, hjust = 2, vjust = 2)
-    
-   p1
-    # if notches go outside hinges, run a higher number of reps in the script
+    annotate("text", label = c("A", "B", "C", "D", "E", "F"), size = 4, x = Inf, y = Inf, hjust = 2, vjust = 2, fontface = 2) +
+    panel_border(remove = FALSE, colour = "black") + background_grid(major = "xy", minor = "y") +
+    theme(strip.text = element_text(margin = margin(.1, .1, .1, .1, "cm")),
+          plot.margin = margin(20, 0, 0, 5)) # if notches go outside hinges, run a higher number of reps in the script
   
-#### FIGURE 4 ########
+  # Fig 3B 
   dat.summary <- list(full = out2.SS %>% group_by(timebin, subsample, positive = posnegzero(SFS.ss2)) %>% 
                         summarize(mean = mean(SFS.ss2), median = median(SFS.ss2)),
                       biotic = out2.SS %>% group_by(timebin, subsample, positive = posnegzero(SFSa.ss2)) %>% 
@@ -116,22 +97,50 @@ pdf("Figures.pdf") #optional
   dat.summary$positive <- factor(dat.summary$positive)
   levels(dat.summary$positive) <- c("segregations", "aggregations")
   dat.summary$positive <- factor(dat.summary$positive, levels = c('aggregations', 'segregations'))
-
-   
-  p2 <- ggplot(dat.summary, aes(x = timebin, y = abs(mean), fill = timebin)) +  # CHANGE y = abs(mean) to y = abs(median) to get Fig. S8
+  
+  
+  p2 <- ggplot(dat.summary, aes(x = timebin, y = abs(mean), fill = timebin)) +  # CHANGE y = abs(mean) to y = abs(median) to get Fig. S11
     geom_boxplot(outlier.size = 0.6, width = .6, notch = TRUE, size = .3) + facet_grid(component~positive) + 
     scale_fill_manual(values = c("darkslateblue", "dodgerblue","seagreen3")) + 
     theme(legend.position = "none", axis.title.y = element_text(size = 12), 
           axis.text = element_text(size = 12), axis.text.x = element_text(angle = 30, hjust = 1), strip.text = element_text(size = 12)) +
     labs(y = "Mean weight of association", x = "") +
     scale_x_discrete(labels = c("Pleistocene", "Holocene", "Recent"))+
-    annotate("text", label = c("G", "H", "I", "J", "K", "L"), size = 4, x = Inf, y = Inf, hjust = 2, vjust = 2)
+    annotate("text", label = c("G", "H", "I", "J", "K", "L"), size = 4, x = Inf, y = Inf, hjust = 2, vjust = 2, fontface = 2)+
+    panel_border(remove = FALSE, colour = "black") + background_grid(major = "xy", minor = "y") +
+    theme(strip.text = element_text(margin = margin(.1, .1, .1, .1, "cm")),
+          plot.margin = margin(20, 5, 0, 5))
+
+  plot_grid(p1, p2, ncol = 2, labels = c("PROPORTION", "MEAN WEIGHT"), label_size = 12, label_x = 0.25) 
+#### FIGURE 4 ########
+  out.SS <- out[out$type == "SS",]
+  out2.SS <- out.SS[out.SS$num >= ss2,]
   
-  p2
+  dat.summary <- out2.SS %>% 
+    group_by(timebin, subsample) %>% 
+    summarize(Biotic = mean(abs(SFSa.ss2)), 
+              Abiotic = mean(abs(abtc.ss2))) %>% 
+    na.omit()
   
-  ###### SUPPLEMENT #######
+  dat.summary$timebin <- factor(dat.summary$timebin, levels = c("PLEI", "HOLO", "MOD"))
+  d <- melt(dat.summary, id.vars = c("timebin", "subsample"), value.name = "avgmag")
+  ggplot(d, aes(x = timebin, y = avgmag, fill = timebin)) + 
+    geom_boxplot(notch = TRUE) + facet_grid(~variable) + 
+    scale_fill_manual(values = c("darkslateblue", "dodgerblue","seagreen3")) + 
+    scale_x_discrete(labels = c("Pleistocene", "Holocene", "Recent")) + 
+    theme(legend.position = "none", axis.title.y = element_text(size = 12), 
+          axis.text = element_text(size = 12), axis.text.x = element_text(size = 12), 
+          strip.text = element_text(margin = margin(.1, .1, .1, .1, "cm"))) +
+    labs(y = "Average magnitude of associations", x = "") +
+    annotate("text", label = c("A", "B"), size = 4, x = Inf, y = Inf, hjust = 2, vjust = 2, fontface = 2) +
+    panel_border(remove = FALSE, colour = "black", size = 0.8) + background_grid(major = "xy")
   
-#### FIGURE S1 ######
+  
+  
+  
+###### SUPPLEMENT #######
+  
+  #### FIGURE S1 ######
   modxy <- fml[which(fml$id %in% colnames(PA[[1]])),c("LONGDD", "LATDD")]
   holxy <- fml[which(fml$id %in% colnames(PA[[2]])),c("LONGDD", "LATDD")]
   plexy <- fml[which(fml$id %in% colnames(PA[[3]])),c("LONGDD", "LATDD")]
@@ -151,47 +160,167 @@ pdf("Figures.pdf") #optional
   #polygon(plexy[chull(plexy),], border = "red", col = rgb(1,0,0,.4))
   box()
   
-#### FIGURE S3 ######
+  
+  #### FIGURE S2 ######
+  #### Method schematic
+  
+  s1 <- sitebyspecies[sitebyspecies$name == "Ovis_canadensis" & sitebyspecies$tbn == 'MOD',]
+  s2 <- sitebyspecies[sitebyspecies$name == "Antilocapra_americana" & sitebyspecies$tbn == 'MOD',]
+  
+  s1h <- find_hull.geog(s1)
+  s1h <- rbind(s1h, s1h[1,])
+  s2h <- find_hull.geog(s2)
+  s2h <- rbind(s2h, s2h[1,])
+  
+  s1hc <- find_hull.clim(s1)
+  s1hc <- rbind(s1hc, s1hc[1,])
+  s2hc <- find_hull.clim(s2)
+  s2hc <- rbind(s2hc, s2hc[1,])
+  
+  sites <- sitebyspecies %>% select(id, tbn, LATDD, LONGDD, MAP, MAT, bio4, bio15, MeanAge) %>% 
+    unique() %>% filter(tbn == "MOD")
+  
+  # calculate points in polygon
+  s1h.pip <- point.in.polygon(sites$LATDD, sites$LONGDD, s1h$LATDD, s1h$LONGDD, mode.checked=FALSE)
+  s1h.pip <- sites[as.logical(s1h.pip),]
+  
+  s2h.pip <- point.in.polygon(sites$LATDD, sites$LONGDD, s2h$LATDD, s2h$LONGDD, mode.checked=FALSE)
+  s2h.pip <- sites[as.logical(s2h.pip),]
+  
+  s1hc.pip <- point.in.polygon(sites$MAP, sites$MAT, s1hc$MAP, s1hc$MAT, mode.checked=FALSE)
+  s1hc.pip <- sites[as.logical(s1hc.pip),]
+  
+  s2hc.pip <- point.in.polygon(sites$MAP, sites$MAT, s2hc$MAP, s2hc$MAT, mode.checked=FALSE)
+  s2hc.pip <- sites[as.logical(s2hc.pip),]
+  
+  par(mfrow = c(4,2), oma = c(2,2,0,0), mar = c(0,0,0,0))
+  
+  maps::map("world", ylim = c(25, 55), xlim = c(-125, -65), col = "black")
+  points(LATDD~LONGDD, data = sites, cex = 0.7, pch = 1, col = "black")
+  polygon(s1h$LONGDD, s1h$LATDD, border = "red", col = rgb(1,0,0, 0.4))
+  points(LATDD~LONGDD, data = s1, cex = 0.8, pch = 16, col = "yellow")
+  box()
+  
+  maps::map("world", ylim = c(25, 55), xlim = c(-125, -65), col = "black")
+  points(LATDD~LONGDD, data = sites, cex = 0.7, pch = 1, col = "black")
+  polygon(s2h$LONGDD, s2h$LATDD, border = "red", col = rgb(1,0,0, 0.4))
+  points(LATDD~LONGDD, data = s2, cex = 0.8, pch = 16, col = "yellow")
+  box()
+  
+  plot(MAP~MAT, data = sites, cex = 0.5, las = 1, axes = F)
+  polygon(s1hc$MAT, s1hc$MAP, border = "blue", col = rgb(0,0,1, 0.4))
+  points(MAP~MAT, data = s1, cex = 0.8, pch = 16, col = "yellow")
+  box()
+  
+  plot(MAP~MAT, data = sites, cex = 0.5, las = 1, axes = F)
+  polygon(s2hc$MAT, s2hc$MAP, border = "blue", col = rgb(0,0,1, 0.4))
+  points(MAP~MAT, data = s2, cex = 0.8, pch = 16, col = "yellow")
+  box()
+  
+  #### combined
+  maps::map("world", ylim = c(25, 55), xlim = c(-125, -65), col = "black")
+  points(LATDD~LONGDD, data = sites, cex = 0.7, pch = 1, col = "black")
+  polygon(s1h$LONGDD, s1h$LATDD, border = "red", col = rgb(1,0,0, 0.4))
+  points(LATDD~LONGDD, data = s1hc.pip, cex = 0.8, pch = 16, col = rgb(0,0,1, 0.8))
+  box()
+  
+  maps::map("world", ylim = c(25, 55), xlim = c(-125, -65), col = "black")
+  points(LATDD~LONGDD, data = sites, cex = 0.7, pch = 1, col = "black")
+  polygon(s2h$LONGDD, s2h$LATDD, border = "red", col = rgb(1,0,0, 0.4))
+  points(LATDD~LONGDD, data = s2hc.pip, cex = 0.8, pch = 16, col = rgb(0,0,1, 0.8))
+  box()
+  
+  ####
+  # potential ranges
+  pr1 <- s1h.pip[s1h.pip$id %in% s1hc.pip$id,]
+  pr2 <- s2h.pip[s2h.pip$id %in% s2hc.pip$id,]
+  
+  maps::map("world", ylim = c(25, 55), xlim = c(-125, -65), col = "black")
+  points(LATDD~LONGDD, data = pr2[pr2$id %in% pr1$id,], cex = 0.6, pch = 16, col = "black")
+  points(LATDD~LONGDD, data = pr1, cex = 0.9, pch = 16, col = "darkmagenta")
+  box()
+  
+  maps::map("world", ylim = c(25, 55), xlim = c(-125, -65), col = "black")
+  points(LATDD~LONGDD, data = pr2[pr2$id %in% pr1$id,], cex = 0.4, pch = 16, col = "white")
+  points(LATDD~LONGDD, data = pr2, cex = 0.9, pch = 16, col = "darkmagenta")
+  box()
+  
+  
+  #### FIGURE S3 ######
+  # created in ms powerpoint
+  #### FIGURE S4 ######
   ggplot(out2.SS, aes(num, col = timebin, fill = timebin)) + 
-    geom_density(alpha = 0.3, size = 1) + 
+    geom_density(alpha = 0.3, adjust = 3) + 
     scale_fill_manual(values = c("seagreen3", "dodgerblue","darkslateblue"), labels = c("Recent", "Holocene", "Pleistocene")) +
     scale_colour_manual(values = c("seagreen3", "dodgerblue","darkslateblue"), labels = c("Recent", "Holocene", "Pleistocene")) +
-    theme(legend.position = c(0.8, 0.8), legend.text = element_text(size = 12), axis.text = element_text(size = 12), legend.title = element_blank()) +
-    geom_hline(aes(yintercept = 0), col = "white", size = 1)+
-    labs(x = "Number of sites in mutual niche", y = "Density")
+    theme(legend.position = c(0.65, 0.82), 
+          legend.background = element_rect(linetype = 1, colour = "black"),
+          legend.text = element_text(size = 12), 
+          axis.text = element_text(size = 12), 
+          legend.title = element_blank()) +
+    geom_hline(aes(yintercept = -0.0001), col = "white", size = 1.1) + 
+    labs(x = "Number of sites in mutual potential range", y = "Probability density") + 
+    panel_border(remove = FALSE, col = "black", size = 0.8)
   
+  #### FIGURE S5 ######
+  # 2D geographic hypervolumes and 2D, 4D climatic hypervolumes
+  # v is generated by the analysis script
   
-#### FIGURE S4 ########
-  dat.summary <- out2.SS %>% 
-    group_by(timebin, subsample) %>% 
-    summarize(Biotic = mean(abs(SFSa.ss2)), 
-              Abiotic = mean(abs(abtc.ss2))) %>% 
-    na.omit()
+  ggplot(v, aes(x = volume, col = group, fill = group)) + geom_density(alpha = 0.3, size = 1) +
+    facet_grid(~variables, scales = "free") + 
+    panel_border(remove = FALSE, col = "black") +
+    labs(x = "Raw hypervolumes", y = "Probability density") +
+    scale_colour_manual(values = c("seagreen3", "dodgerblue", "darkslateblue", "gray20"), labels = c("Recent survivor", "Holocene survivor", "Pleistocene survivor", "Pleistocene extinct")) + 
+    scale_fill_manual(values = c("seagreen3", "dodgerblue", "darkslateblue", "gray20"), labels = c("Recent survivor", "Holocene survivor", "Pleistocene survivor", "Pleistocene extinct")) +
+    theme(strip.text = element_text(margin = margin(.1, .1, .1, .1, "cm"))) +
+    panel_border(remove = FALSE, col = "black", size = 1) +
+    annotate("text", label = c("A", "B"), size = 4, x = Inf, y = Inf, hjust = 2, vjust = 2, fontface = 2)
   
-  dat.summary$timebin <- factor(dat.summary$timebin, levels = c("PLEI", "HOLO", "MOD"))
-  ggplot(melt(dat.summary, value.name = "avgmag"), aes(x = timebin, y = avgmag, fill = timebin)) + 
-    geom_boxplot(notch = TRUE) + facet_grid(~variable) + 
-    scale_fill_manual(values = c("darkslateblue", "dodgerblue","seagreen3")) + 
-    scale_x_discrete(labels = c("Pleistocene", "Holocene", "Recent")) + 
-    theme(legend.position = "none", axis.title.y = element_text(size = 12), 
-          axis.text = element_text(size = 12), axis.text.x = element_text(), strip.text = element_text(size = 12)) +
-    labs(y = "Average magnitude of associations", x = "") 
+  #### FIGURES S6-7 ######
+  # 6D convex hulls, raw areas, for supplement  
+  n <- list(ssv_geog, ssv_clim, ssv_seas) 
+  names(n) <- c("Geographic", "Climatic", "Seasonality")
+  n <- bind_rows(n, .id = "treat")
+  n$group <- factor(n$group, levels = c("MOD.survivor", "HOLO.survivor","PLEI.survivor","PLEI.victim"))
   
+  specs <- list(geom_density(alpha = 0.3, trim = FALSE, adjust = .8, size = 1), 
+                facet_grid(treat~., scales = "free_y", shrink = FALSE),
+                panel_border(remove= FALSE, colour= "black", size = 0.8),
+                scale_fill_manual(values = c("seagreen3", "dodgerblue", "darkslateblue", "gray35"), labels = c("Recent survivor", "Holocene survivor", "Pleistocene survivor", "Pleistocene victim")),
+                scale_color_manual(values = c("seagreen3", "dodgerblue", "darkslateblue", "gray35"), labels = c("Recent survivor", "Holocene survivor", "Pleistocene survivor", "Pleistocene victim")),
+                theme(panel.background = element_rect(fill = NA, color = "black"), 
+                      axis.title.x = element_text(size = 12),
+                      axis.text.y = element_text(size = 8),
+                      panel.grid = element_blank(),
+                      text = element_text(size = 12), 
+                      strip.text = element_text(margin = margin(.1, .1, .1, .1, "cm"))), 
+                geom_hline(yintercept = 0, col = "white", lwd = 1.1),
+                annotate("text", label = c("A", "B", "C"), size = 4, x = Inf, y = Inf, hjust = 2, vjust = 2)) 
   
+  # relative area Fig S5
+  ggplot(n, aes(x = fill, col = group, fill = group)) + specs + 
+    labs(x = "Proportion of available hypervolume", y = "Probability density") + 
+    xlim(c(0, 1))
   
-#### FIGURE S6 ############
+  # raw area Fig S6
+  ggplot(n, aes(x = chull.area, col = group, fill = group)) + specs + 
+    labs(x = "Raw area (z-score squared)", y = "Probability density") + 
+    xlim(c(0, 25))
+  
+   
+  #### FIGURE S9 ############
   md <- melt(d)
-  md$timebin <- factor(md$timebin, levels = c("Recent", "Holocene", "Pleistocene"))
+  md$tbn <- factor(md$tbn, levels = c("MOD", "HOLO", "PLEI"))
   
   ggplot(md, aes(pnorm(value), col = variable, fill = variable)) + 
     geom_density(size = .8) + geom_hline(aes(yintercept = 0), col = "white", size = 1) + 
-    facet_grid(timebin~.) +
+    facet_grid(tbn~.) +
     scale_colour_manual(labels = c("Observed", "Fixed occupancy", "Fixed richness"), values = c(rgb(0,0,0,0), "blue", "red")) + 
     scale_fill_manual(labels = c("Observed", "Fixed occupancy", "Fixed richness"), values = c("gray", rgb(0,0,0,0), rgb(0,0,0,0))) +
     theme(legend.position = c(0.77, 0.92)) + labs(fill = NULL, col = NULL)
   
-#### FIGURE S7 ############
-  f <- 30 #(ylim max)
+  #### FIGURE S10 ############
+  f <- 45 #(ylim max)
   oc <- map(PA, ~rowSums(.)/ncol(.)) %>% reduce(multimerge, by = 0, all = T)
   names(oc) <- c("Mod", "Holo", "Plei")
   suroc <- oc[which(!is.na(oc$Holo) | !is.na(oc$Mod)),]
@@ -200,14 +329,14 @@ pdf("Figures.pdf") #optional
   
   par(mfrow = c(3,1), mar = c(0,0,0,0), oma = c(4, 4, 1, 1), cex = 1)
   hist(oc[,1], xlim = c(0,.65), ylim = c(0, f), main = NA, breaks = 15, col = "gray35", las = 1, axes = F)
-  hist(suroc[which(!is.na(suroc$Holo) | !is.na(suroc$Plei)),1], add = T, col = "white", breaks = 15)
+  hist(suroc[which(!is.na(suroc$Holo) | !is.na(suroc$Plei)),1], add = T, col = "seagreen3", breaks = 15)
   box()
   text(.55, f*0.9, "Recent", cex = 1)
   axis(2, las = 1, mgp = c(2.5,.7,0))
   
   
   hist(oc[,2], xlim = c(0,.65), ylim = c(0, f), main = NA, breaks = 15, col = "gray35", las = 1, axes = F)
-  hist(suroc[which(!is.na(suroc$Mod) | !is.na(suroc$Plei)),2], add = T, col = "white", breaks = 15)
+  hist(suroc[which(!is.na(suroc$Mod) | !is.na(suroc$Plei)),2], add = T, col = "dodgerblue", breaks = 15)
   box()
   text(.53, f*0.9, "Holocene", cex = 1)
   axis(2, las = 1, mgp = c(2.5,.7,0))
@@ -215,25 +344,24 @@ pdf("Figures.pdf") #optional
   mtext("Number of species", 2, line = 2.5)
   
   hist(oc[,3], xlim = c(0,.65), ylim = c(0, f), main = NA, breaks = 9, col = "gray35", las = 1, mgp = c(2.5,.7,0))
-  hist(suroc[,3], add = T, col = 'white', breaks = 9)
+  hist(suroc[,3], add = T, col = 'slateblue', breaks = 9)
   box()
   text(.50, f*0.9, "End-Pleistocene", cex = 1)
   
   mtext("Occupancy", 1, line = 2)
   
-#### FIGURE S8 ############
-  # Run Figure 4 with y = abs(median) in the ggplot aes() mapping call. 
-#### FIGURE S9 and S11 ############
+  #### FIGURE S12 ############
+  # Run Figure 4 with y = abs(median) in the ggplot aes() mapping call.
+  
+  #### FIGURE S13 and S15 ############
   # Run Analysis_Script.R with fml.sitedat <- sd.clim4k
   # Replot Figures 3 and 4
-  # Replot Figure S4
   
-#### FIGURE S10 and S12 ############
+  #### FIGURE S14 and S16 ############
   # Run Analysis_Script.R with fml.sitedat <- sd.minmax1 (or any minmax1-5)
   # Replot Figures 3 and 4
-  # Replot Figure S4
   
-#########
+  #########
   
 dev.off() # optional
   
