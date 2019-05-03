@@ -6,7 +6,7 @@ output: html_document
 ---
 
 # Megafauna
-Data and code for manuscript "End-Pleistocene extinction caused a fundamental shift in mammal survivor community structure" by Toth et al. 
+Data and code for manuscript "Reorganization of surviving mammal communities after end-Pleistocene megafaunal extinction" by Toth et al. 
 
 ### Data 
 
