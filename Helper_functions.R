@@ -68,6 +68,24 @@ find_hull.clim <- function(df) df[chull(df$MAP, df$MAT), ]
 find_hull.geog <- function(df) df[chull(df$laea.lat, df$laea.long), ]
 find_hull.seas <- function(df) df[chull(df$bio4, df$bio15), ]
 
+# get hypervolume by species based on input variables. 
+get_hypervolume <- function(occtable, dims = c("MAP", "MAT", "laea.long", "laea.lat")){  #occtable is a table of occurrences by site, long format, with environmental data 
+  yes <- occtable %>% split(.$name) %>% map(~apply(.[dims], 2, function(x) length(unique(x)))) %>% map_dbl(min) %>% `>`(3) %>% which() %>% names()
+  no <- occtable %>% split(.$name) %>%  map(~apply(.[dims], 2, function(x) length(unique(x)))) %>% map_dbl(min) %>% `<`(4) %>% which() %>% names()
+  lowocc <- rep(0, times = length(no)) %>% setNames(no)  
+  occtable <- occtable[occtable$name %in% yes,] 
+  # make hypervolumes
+  hvs <- lapply(unique(occtable$name), function(x) return(hypervolume_svm(occtable[occtable$name==x,dims]))) %>% 
+    setNames(unique(occtable$name))
+  vols <- map_dbl(hvs, ~.@Volume)
+  # add in species with too few observations to calculate hypervolume
+  vols <- data.frame(volume = c(vols, lowocc))
+  vols$name <- rownames(vols)
+  print(no)
+  return(hvs)
+}
+
+
 # Calculates the convex hull areas of each species occupancies in geographic ("geog"), seasonality ("seas"), or climatic ("climate") space
 niche_areas <- function(sitebyspecies, type = "geog"){
   if(!type %in% c("geog","climate", "seas")) stop("invalid type")
