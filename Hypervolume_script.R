@@ -8,6 +8,8 @@
 # This script can be used to generate hypervolume calculations for species in PA (presence-absence table) in various different ways. 
 # The hypervolumes are used to calculate geographic and climate envelopes for species occurrences and backgrounds. 
 
+library(hypervolume)
+
 # Terminology: 
 # tbn timebins: MOD (Recent), HOLO (Holocene), PLEI (end-Pleistocene)
 # sp species  : list of species names across the entire dataset
@@ -94,18 +96,18 @@
 # CLIMATIC HYPERVOLUMES BY SP BY TIMEBIN GEOG INCLUSION, POOLED ####    
       niche.geog.sp.tbn.pooled <- reduce(niche.geog.sp.tbn, multimerge, by = 0, all = T) 
       niche.geog.sp.tbn.pooled[is.na(niche.geog.sp.tbn.pooled)] <- 0 
-  # Presence
+  # m: Uses Presences in by-timebin by-species geographic hvms to select sites
       s <- apply(niche.geog.sp.tbn.pooled, 1, function(x) names(x[x==1]))
       hvm.clim.geog.sp.tbn.pooled <- map(s, function(x) return(sites %>% filter(id %in% x))) %>% bind_rows(.id = "name") %>% 
         get_hypervolume(dims = c("MAP", "MAT", "bio4", "bio15"))
       
-  # Absence
+  # n: Absence
       s <- apply(niche.geog.sp.tbn.pooled, 1, function(x) names(x[x==0]))
       hvm.clim.geog.sp.tbn.abs.pooled <- map(s, function(x) return(sites %>% filter(id %in% x))) %>% bind_rows(.id = "name") %>% 
         get_hypervolume(dims = c("MAP", "MAT", "bio4", "bio15"))
       
       
-# Calculate volumes for each hvm ####
+# CALCULATE VOLUMES AND COLLATE DATA ####
 hyper.list <- grep(pattern = "hvm.", ls(), value = TRUE) %>% map(get) 
 layer <- hyper.list %>% map(map_chr, class) %>% sapply(table) %>% 
   names %>% `==`("Hypervolume")
@@ -140,9 +142,10 @@ ve <- v %>% filter(name %in% extinct) %>% filter(variable == "PLEI") %>% map_df(
 vs <- v %>% filter(name %in% survivors) %>% map_df(replace_na, 0) %>% mutate(status = "survivor")
 
 v <- rbind(vs, ve)
-### FOREGROUND/BACKGROUND SELECTION ####   
-    # combination of fore and background hvms depends on the biological question! 
-    
+
+### NOTES ON FOREGROUND/BACKGROUND SELECTION ####   
+    # combination of fore and background hvms depends on the biological question. 
+# For instance: 
 # c:a How much of the geographic space available in each time interval has the species accessed in each time interval?
 # c:b How much of the total geographic space accessible to a species has the species accessed in each time interval?
 # b:a (not too logical because b has nsp and a has 3 (n tbns), but could factorialize) 
