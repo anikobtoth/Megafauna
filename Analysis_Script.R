@@ -3,7 +3,6 @@
 
 #________________ Script to replicate analyses   ________________ #
 #________________     by Anikó B. Tóth    ________________ #
-#________________    November 8, 2018    ________________ #
 
 ## This script runs all of the analyses presented in the manuscript and supplement.
 ## The script allows a user to choose certain parameters, 
@@ -114,53 +113,53 @@ PA <- PA[c("MOD", "HOLO", "PLEI")]  # put time intervals in order.
   #### site table
     sites <- sitebyspecies.z %>% dplyr::select(id, tbn, laea.lat, laea.long, MAP, MAT, bio4, bio15, MeanAge, MinAge, MaxAge) %>% unique()
   
-  #### Calculate Niche areas #####
-    # OPTION 1: with hypervolumes
+  #### Calculate separate geographic and climatic Niche and background volumes/areas  #####
+    # OPTION 1: with hypervolumes ####
+        # **THIS TAKES A LONG TIME TO RUN**  
+        # source("Hypervolume_script.R")
+        # it can also be partially run by a careful user -- intermediate named objects are reused throughout.
+        # There is a block of code at the bottom that produces the desired product v even if you only have some of the hypervolumes calculated.
+    # OPTION 2: with convex hulls ####
+          # total area by timebin
+        ch_geog <- sitebyspecies.z %>% split(.$tbn) %>% map(find_hull.geog) %>% map(select, laea.long, laea.lat) %>% map(Polygon, hole=F) %>% map_dbl(function(x) x@area)
+        ch_clim <- sitebyspecies.z %>% split(.$tbn) %>%  map(find_hull.clim) %>% map(select, MAP, MAT) %>% map(Polygon, hole=F) %>% map_dbl(function(x) x@area)
+        ch_seas <- sitebyspecies.z %>% split(.$tbn) %>% map(find_hull.seas) %>% map(select, bio4, bio15) %>% map(Polygon, hole=F) %>% map_dbl(function(x) x@area)
+        
+          # niche area and proportion of total area by species
+        ssv_geog <- sitebyspecies.z %>% split(interaction(.$tbn, .$status)) %>% 
+          purrr::map(niche_areas, type = "geog") %>% bind_rows(.id = 'group')
+        ssv_geog <- strsplit(ssv_geog$group, fixed = TRUE, split = ".") %>% 
+          reduce(rbind) %>% data.frame(ssv_geog) %>% setNames(c("tbn", "status", "group", "name", "chull.area"))
+        ssv_geog$fill = ssv_geog$chull.area / rep(ch_geog, times = table(ssv_geog$tbn))
+        
+        ssv_clim <- sitebyspecies.z %>% split(interaction(.$tbn, .$status)) %>% 
+          purrr::map(niche_areas, type = "climate") %>% bind_rows(.id = 'group')
+        ssv_clim <- strsplit(ssv_clim$group, fixed = TRUE, split = ".") %>% 
+          reduce(rbind) %>% data.frame(ssv_clim) %>% setNames(c("tbn", "status", "group", "name", "chull.area"))
+        ssv_clim$fill = ssv_clim$chull.area / rep(ch_clim, times = table(ssv_clim$tbn))
+        
+        ssv_seas <- sitebyspecies.z %>% split(interaction(.$tbn, .$status)) %>% 
+          purrr::map(niche_areas, type = "seas") %>% bind_rows(.id = 'group')
+        ssv_seas <- strsplit(ssv_seas$group, fixed = TRUE, split = ".") %>% 
+          reduce(rbind) %>% data.frame(ssv_seas) %>% setNames(c("tbn", "status", "group", "name", "chull.area"))
+        ssv_seas$fill = ssv_seas$chull.area / rep(ch_seas, times = table(ssv_seas$tbn))
     
-      # # total hypervolume by timebin
-     h.geog <- sites %>% split(.$tbn) %>% map(select,laea.lat, laea.long) %>% map(hypervolume_svm) #map(~.[sample(1:nrow(.), size = 60),]) %>%
-     h.clim <- sites %>% split(.$tbn) %>% map(select, MAP, MAT, bio4, bio15) %>% map(hypervolume_svm) #map(~.[sample(1:nrow(.), size = 60),]) %>%
-     
-      # niche hypervolume and proportion of total hypervolume by species
-     hvs.geog <- sitebyspecies.z %>% split(.$tbn) %>% map(get_hypervolume, dims = c("laea.lat", "laea.long"))
-     hvs.clim <- sitebyspecies.z %>% split(.$tbn) %>% map(get_hypervolume, dims = c("MAP", "MAT", "bio4", "bio15"))
-     
-     v.geog <- hvs.geog %>% map(map_dbl, ~.@Volume) %>% map(data.frame) %>% 
-       map(function(x) data.frame(name = rownames(x), x)) %>% bind_rows(.id = "tbn") %>%
-       setNames(c("tbn", "name", "volume"))
-     v.geog$fill <- v.geog$volume/rep(map_dbl(h.geog, ~.@Volume), times = table(v.geog$tbn))
-     
-     v.clim <- hvs.clim %>% map(map_dbl, ~.@Volume) %>% map(data.frame) %>% 
-       map(function(x) data.frame(name = rownames(x), x)) %>% bind_rows(.id = "tbn") %>%
-       setNames(c("tbn", "name", "volume"))
-     v.clim$fill <- v.clim$volume/rep(map_dbl(h.clim, ~.@Volume), times = table(v.clim$tbn))
-   
-    # OPTION 2: with convex hulls
     
-      # total area by timebin
-    ch_geog <- sitebyspecies.z %>% split(.$tbn) %>% map(find_hull.geog) %>% map(select, laea.long, laea.lat) %>% map(Polygon, hole=F) %>% map_dbl(function(x) x@area)
-    ch_clim <- sitebyspecies.z %>% split(.$tbn) %>%  map(find_hull.clim) %>% map(select, MAP, MAT) %>% map(Polygon, hole=F) %>% map_dbl(function(x) x@area)
-    ch_seas <- sitebyspecies.z %>% split(.$tbn) %>% map(find_hull.seas) %>% map(select, bio4, bio15) %>% map(Polygon, hole=F) %>% map_dbl(function(x) x@area)
-    
-      # niche area and proportion of total area by species
-    ssv_geog <- sitebyspecies.z %>% split(interaction(.$tbn, .$status)) %>% 
-      purrr::map(niche_areas, type = "geog") %>% bind_rows(.id = 'group')
-    ssv_geog <- strsplit(ssv_geog$group, fixed = TRUE, split = ".") %>% 
-      reduce(rbind) %>% data.frame(ssv_geog) %>% setNames(c("tbn", "status", "group", "name", "chull.area"))
-    ssv_geog$fill = ssv_geog$chull.area / rep(ch_geog, times = table(ssv_geog$tbn))
-    
-    ssv_clim <- sitebyspecies.z %>% split(interaction(.$tbn, .$status)) %>% 
-      purrr::map(niche_areas, type = "climate") %>% bind_rows(.id = 'group')
-    ssv_clim <- strsplit(ssv_clim$group, fixed = TRUE, split = ".") %>% 
-      reduce(rbind) %>% data.frame(ssv_clim) %>% setNames(c("tbn", "status", "group", "name", "chull.area"))
-    ssv_clim$fill = ssv_clim$chull.area / rep(ch_clim, times = table(ssv_clim$tbn))
-    
-    ssv_seas <- sitebyspecies.z %>% split(interaction(.$tbn, .$status)) %>% 
-      purrr::map(niche_areas, type = "seas") %>% bind_rows(.id = 'group')
-    ssv_seas <- strsplit(ssv_seas$group, fixed = TRUE, split = ".") %>% 
-      reduce(rbind) %>% data.frame(ssv_seas) %>% setNames(c("tbn", "status", "group", "name", "chull.area"))
-    ssv_seas$fill = ssv_seas$chull.area / rep(ch_seas, times = table(ssv_seas$tbn))
-    
+  # Calculate overlap of hypervolumes with sites (use only ONE of the two options below) ####
+    # OPTION 1: with hypervolumes ####
+      # by species (across timebins)
+          niche.geog <- get_niche_table_hypervolume(sitebyspecies.z, dims = c("laea.lat", "laea.long"), min.occ = 4) 
+          niche.clim <- get_niche_table_hypervolume(sitebyspecies.z, dims = c("MAP", "MAT", "bio4", "bio15"), min.occ = 4)
+          niche <- niche.geog[sort(rownames(niche.geog)),] + niche.clim[sort(rownames(niche.clim)),]
+          niche[niche==1] <- 0
+          niche[niche==2] <- 1
+
+      # by species by timebin
+          niche.geog.sp.tbn <- sitebyspecies.z %>% split(.$tbn) %>% map(get_niche_table_hypervolume, dims = c("laea.lat", "laea.long"), min.occ = 4)
+          niche.geog.sp.tbn <- niche.geog.sp.tbn[c("MOD", "HOLO", "PLEI")]
+    # OPTION 2: with convex hulls ####
+        niche <- get_niche_table_6D(sitebyspecies)
+
 ### Co-occurrence analysis with subsampling #### 
   # not presented in paper except in Fig. S9 to contrast randomization tests
   rps = 100 #number of subsamples
@@ -178,17 +177,6 @@ PA <- PA[c("MOD", "HOLO", "PLEI")]  # put time intervals in order.
   ss1 <- 60      # size of subsample for each repetition, must be less than min number of sites: min(map_int(PA, ncol))
   ss2 <- 10      # minimum number of mutual niche sites to be included (Mij)
   reps <- 100   # number of iterations
-  
-  # Calculate combined niche sites (use only ONE of the two options below)
-    # OPTION 1: with hypervolumes
-  niche.geog <- get_niche_table_hypervolume(sitebyspecies.z, dims = c("laea.lat", "laea.long"), min.occ = 4) 
-  niche.clim <- get_niche_table_hypervolume(sitebyspecies.z, dims = c("MAP", "MAT", "bio4", "bio15"), min.occ = 4)
-  niche <- niche.geog[sort(rownames(niche.geog)),] + niche.clim[sort(rownames(niche.clim)),]
-  niche[niche==1] <- 0
-  niche[niche==2] <- 1
-  
-    # OPTION 2: with convex hulls
-  niche <- get_niche_table_6D(sitebyspecies)
   
   # Calculate biotic/abiotic components
   out <- list()

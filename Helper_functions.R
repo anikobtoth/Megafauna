@@ -14,6 +14,7 @@ namerows <- function(table){
   return(table)
 }
 
+
 # changes abundance data to presence-absence
 tobinary <- function(PA.LIST){
   binary <- lapply(PA.LIST, function(x) {
@@ -75,7 +76,7 @@ get_hypervolume <- function(occtable, dims = c("MAP", "MAT", "laea.long", "laea.
   lowocc <- rep(0, times = length(no)) %>% setNames(no)  
   occtable <- occtable[occtable$name %in% yes,] 
   # make hypervolumes
-  hvs <- lapply(unique(occtable$name), function(x) return(hypervolume_svm(occtable[occtable$name==x,dims]))) %>% 
+  hvs <- lapply(unique(occtable$name), function(x) return(hypervolume_svm(occtable[occtable$name==x,dims], svm.nu = 0.05, svm.gamma = 0.25))) %>% 
     setNames(unique(occtable$name))
   vols <- map_dbl(hvs, ~.@Volume)
   # add in species with too few observations to calculate hypervolume
@@ -146,23 +147,26 @@ get_niche_table_6D <- function(sitebyspecies){
 get_niche_table_hypervolume <- function(occtable, dims = c("MAP", "MAT", "laea.long", "laea.lat"), min.occ = 4){  
   yes <- occtable %>% split(.$name) %>% map(~apply(.[dims], 2, function(x) length(unique(x)))) %>% map_dbl(min) %>% `>`(min.occ) %>% which() %>% names()
   no <- occtable %>% split(.$name) %>%  map(~apply(.[dims], 2, function(x) length(unique(x)))) %>% map_dbl(min) %>% `<=`(min.occ) %>% which() %>% names()
-  lowocc <- occtable[occtable$name %in% no,]
-  lowocc <- dcast(lowocc, id~name, value.var = "value", fun.aggregate = max, fill = 0) %>% namerows()
-  occtable <- occtable[occtable$name %in% yes,] 
+  if(length(no) > 0){
+    lowocc <- filter(occtable, name %in% no) %>% 
+      dcast(id~name, value.var = "value", fun.aggregate = max, fill = 0) %>% namerows()
+  }else(lowocc <- NULL)
+  
+  occtable <- filter(occtable, name %in% yes)
   # make hypervolumes
-  hvs <- lapply(unique(occtable$name), function(x) return(hypervolume_svm(occtable[occtable$name==x,dims]))) %>% 
+  hvs <- lapply(unique(occtable$name), function(x) return(hypervolume_svm(occtable[occtable$name==x,dims], svm.nu = 0.05, svm.gamma = 0.25))) %>% 
     setNames(unique(occtable$name))
   sites <- unique(occtable[,c('id', dims)])
+  #sites <- select(sites, c("id", dims))
   # inclusion test
   niche <- map(hvs, hypervolume_inclusion_test,  points = sites[,dims], fast.or.accurate = "accurate") %>% 
     map(as.numeric) %>% data.frame()
   rownames(niche) <- sites$id
   # add in species with too few observations to make hypervolume
-  niche <- merge(lowocc, niche, by=0, all = T) %>% namerows() 
+  if(!is.null(lowocc)) {niche <- merge(lowocc, niche, by=0, all = T) %>% namerows() }
   niche[is.na(niche)] <- 0 
   return(t(niche))
 }
-
 
 # biotic/abiotic analysis, one iteration.
 abio_single_niche <- function(y, niche, ss){
