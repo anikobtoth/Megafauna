@@ -7,6 +7,8 @@
 
 require(ggplot2)
 require(cowplot)
+require(grid)
+require(gtable)
 
 pdf("Figures.pdf") #optional
 
@@ -15,39 +17,65 @@ pdf("Figures.pdf") #optional
 # need : PA
   oc <- purrr::map(PA, ~rowSums(.)/ncol(.)) %>% reduce(multimerge, by = 0, all = T)
   names(oc) <- c("Mod", "Holo", "Plei")
-  
+# baseplot  
   par(mfrow = c(1,2), mar = c(3.5, 3.5, 0, 0.5), oma = c(0, 0, 1, 0), cex = 1.2)
   xmax <- .6
-  plot(Plei~Holo, data = oc, pch = 16, las = 1, ylim = c(0, xmax), xlim = c(0, xmax), xlab = "Holocene occupancy", ylab = "end-Pleistocene occupancy", mgp = c(2, .7, 0))
-  lines(x = c(0,.69), y = c(0,.69), lty = 2, lwd = 2)
-  text("A", x = 0.05, y = xmax - 0.05, cex = 1)
-  
-  plot(Mod~Holo, data = oc, pch = 16, las = 1, ylim = c(0, xmax), xlim = c(0, xmax), ylab = "Recent occupancy", xlab = "Holocene occupancy", mgp = c(2, .7, 0))
-  lines(x = c(0,.69), y = c(0,.69), lty = 2, lwd = 2)
-  text("B", x = 0.05, y = xmax-0.05, cex = 1)
+  plot(Holo~Plei, data = oc, pch = 16, cex = .5, las = 1, ylim = c(0, xmax), xlim = c(0, xmax), xlab = "Holocene occupancy", ylab = "end-Pleistocene occupancy", mgp = c(2, .7, 0))
+  lines(x = c(0,.69), y = c(0,.69), lty = 2, lwd = 2, col = "blue")
+  text("A", x = 0.05, y = xmax - 0.05, cex = 1, font = 2)
+  points(Holo~Plei, data = oc)
 
+  plot(Mod~Holo, data = oc, pch = 16, cex = 0.5, las = 1, ylim = c(0, xmax), xlim = c(0, xmax), ylab = "Holocene occupancy", xlab = "Recent occupancy", mgp = c(2, .7, 0))
+  lines(x = c(0,.69), y = c(0,.69), lty = 2, lwd = 2, col = "blue")
+  text("B", x = 0.05, y = xmax-0.05, cex = 1, font = 2)
+  points(Mod~Holo, data = oc)
+
+# ggplot2
+specs <- list(geom_point(shape = 16, size = 0.8),
+              geom_point(shape = 1, size = 2),
+              xlim(c(0, 0.6)), ylim(c(0,0.6)),
+              geom_abline(slope=1, intercept= 0, col = "blue", lty = 2))
+
+A <- ggplot(oc, aes(x = Plei, y = Holo)) + specs +
+  labs(x = "end-Pleistocene occupancy", y = "Holocene occupancy") + 
+  annotate("text", label = "A", fontface = 2, x = 0, y = .6)
+  
+B <- ggplot(oc, aes(x = Holo, y = Mod)) + specs +
+  labs(x = "Holocene occupancy", y = "Recent occupancy") +
+  annotate("text", label = "B", fontface = 2, x = 0, y = .6)
+
+plot_grid(A, B)
 
 #### FIGURE 2 ##########
-#arrange niche area results for plotting   
-  v <- list("Geographic niches" = v.geog, "Climatic niches" = v.clim) %>% bind_rows(.id = "variables")
-  v$status <- v$name %in% survivors
-  v$status[v$status] <- "survivor"
-  v$status[v$status== FALSE] <- "extinct"
-  v$group <- interaction(v$tbn, v$status)
-  v$group <- factor(v$group, levels = c("MOD.survivor", "HOLO.survivor", "PLEI.survivor", "PLEI.extinct"))
-  
-  # fill
-  ggplot(v, aes(x = fill, col = group, fill = group)) + geom_density(alpha = 0.3, size = 1) +
-    facet_grid(variables~., scales = "free") + xlim(c(0, 1)) + 
-    panel_border(remove = FALSE, col = "black") +
-    labs(x = "Proportion of available hypervolume", y = "Probability density") +
-    scale_colour_manual(values = c("seagreen3", "dodgerblue", "darkslateblue", "gray20"), labels = c("Recent survivor", "Holocene survivor", "Pleistocene survivor", "Pleistocene extinct")) + 
-    scale_fill_manual(values = c("seagreen3", "dodgerblue", "darkslateblue", "gray20"), labels = c("Recent survivor", "Holocene survivor", "Pleistocene survivor", "Pleistocene extinct")) +
-    theme(strip.text = element_text(margin = margin(.1, .1, .1, .1, "cm")), 
-          legend.position = c(0.32, 0.85), 
-          legend.background = element_rect(fill = "gray85")) +
-    panel_border(remove = FALSE, col = "black") +
-    annotate("text", label = c("A", "B"), size = 4, x = Inf, y = Inf, hjust = 2, vjust = 2, fontface = 2)
+specs <- list(geom_violin(col = NA, adjust = 0.6, width = 1),
+              geom_boxplot(col = "black", fill = 'white', width = 0.2, alpha = 0.5, outlier.size = 0),
+              geom_jitter(size = 0.4, width = 0.05), facet_grid(~status, scales = "free"),
+              scale_fill_manual(values = c("gray35", "darkslateblue", "dodgerblue", "seagreen3"), labels = c("Pleistocene extinct", "Pleistocne", "Holocene", "Recent")),
+              scale_x_discrete(labels = c("Pleistocene", "Holocene", "Recent"), expand = expand_scale(mult = -0.3)),
+              stat_summary(geom = "point", fun.y = "mean", shape = 21, size = 2, fill = c("gray35", "darkslateblue", "dodgerblue", "seagreen3")),
+              theme(legend.position = "none"))
+# with extinct species 
+A <- ggplot(v, aes(y = hvm.clim.geog.sp.tbn/hvm.clim.geog.sp.tbn.abs.pooled, fill = interaction(status, variable), x = interaction(status, variable))) + 
+  specs + labs(x = element_blank(), y = element_blank())
+
+gtA = ggplot_gtable(ggplot_build(A))
+gtA$widths[7] = 2*gtA$widths[7]
+
+B <- ggplot(v, aes(y = hvm.clim.geog.sp.tbn/hvm.clim.sp.tbn.abs, fill = interaction(status, variable), x = interaction(status, variable))) + 
+  specs + labs(x = element_blank(), y = "Hypervolume ratio")
+
+gtB = ggplot_gtable(ggplot_build(B))
+gtB$widths[7] = 2*gtB$widths[7]
+
+C <- ggplot(v, aes(y = hvm.geog.sp.tbn/hvm.geog.tbn, fill = interaction(status, variable), x = interaction(status, variable))) + 
+  specs + labs(x = element_blank(), y = element_blank()) 
+
+gtC = ggplot_gtable(ggplot_build(C))
+gtC$widths[7] = 2*gtC$widths[7]
+
+
+plot_grid(gtA, gtB, gtC, ncol = 1, align = "hv", labels = "AUTO", label_x = 0.12, label_y = 0.9)
+
 
 #### FIGURE 3 ###########
   # Fig 3A
@@ -264,18 +292,36 @@ pdf("Figures.pdf") #optional
     panel_border(remove = FALSE, col = "black", size = 0.8)
   
   #### FIGURE S5 ######
-  # 2D geographic hypervolumes and 2D, 4D climatic hypervolumes
-  # v is generated by the analysis script
+  # Raw size of geographic and climatic hypervolumes
+  # v is generated by Hypervolume_script.R
+  specs <- list(geom_violin(col = NA, adjust = 0.6, width = 1),
+                geom_boxplot(col = "black", fill = 'white', width = 0.15, alpha = 0.5, outlier.size = 0),
+                geom_jitter(size = 0.4, width = 0.05), facet_grid(~status, scales = "free"),
+                scale_fill_manual(values = c("gray35", "darkslateblue", "dodgerblue", "seagreen3"), labels = c("Pleistocene extinct", "Pleistocne", "Holocene", "Recent")),
+                scale_x_discrete(labels = c("Pleistocene", "Holocene", "Recent"), expand = expand_scale(mult = -0.3)),
+                stat_summary(geom = "point", fun.y = "mean", shape = 21, size = 2, fill = c("gray35", "darkslateblue", "dodgerblue", "seagreen3")),
+                theme(legend.position = "none"))
+  # with extinct species 
+  A <- ggplot(v, aes(y = hvm.clim.geog.sp.tbn, fill = interaction(status, variable), x = interaction(status, variable))) + 
+    specs + labs(x = element_blank(), y = "Climate hypervolume")
   
-  ggplot(v, aes(x = volume, col = group, fill = group)) + geom_density(alpha = 0.3, size = 1) +
-    facet_grid(~variables, scales = "free") + 
-    panel_border(remove = FALSE, col = "black") +
-    labs(x = "Raw hypervolumes", y = "Probability density") +
-    scale_colour_manual(values = c("seagreen3", "dodgerblue", "darkslateblue", "gray20"), labels = c("Recent survivor", "Holocene survivor", "Pleistocene survivor", "Pleistocene extinct")) + 
-    scale_fill_manual(values = c("seagreen3", "dodgerblue", "darkslateblue", "gray20"), labels = c("Recent survivor", "Holocene survivor", "Pleistocene survivor", "Pleistocene extinct")) +
-    theme(strip.text = element_text(margin = margin(.1, .1, .1, .1, "cm"))) +
-    panel_border(remove = FALSE, col = "black", size = 1) +
-    annotate("text", label = c("A", "B"), size = 4, x = Inf, y = Inf, hjust = 2, vjust = 2, fontface = 2)
+  gtA = ggplot_gtable(ggplot_build(A))
+  gtA$widths[7] = 2*gtA$widths[7]
+  
+  B <- ggplot(v %>% filter(hvm.clim.geog.sp.tbn.abs > 0), aes(y = hvm.clim.geog.sp.tbn/hvm.clim.geog.sp.tbn.abs, fill = interaction(status, variable), x = interaction(status, variable))) + 
+    specs + labs(x = element_blank(), y = "Climate hypervolume ratio") + scale_y_log10()
+  
+  gtB = ggplot_gtable(ggplot_build(B))
+  gtB$widths[7] = 2*gtB$widths[7]
+  
+  C <- ggplot(v, aes(y = hvm.geog.sp.tbn, fill = interaction(status, variable), x = interaction(status, variable))) + 
+    specs + labs(x = element_blank(), y = "Geographic hypervolume") 
+  
+  gtC = ggplot_gtable(ggplot_build(C))
+  gtC$widths[7] = 2*gtC$widths[7]
+  
+  
+  plot_grid(gtA, gtB, gtC, ncol = 1, align = "hv", labels = "AUTO", label_x = 0.14, label_y = 0.9)
   
   #### FIGURES S6-7 ######
   # 6D convex hulls, raw areas, for supplement  

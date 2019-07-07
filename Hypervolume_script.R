@@ -137,11 +137,12 @@ v2 <- hyper.list[!layer] %>% map(map, map_dbl, ~.@Volume) %>%
 v <- merge(v2, v1, by = "name", all = T) %>% merge(v0, by.x = "variable", by.y = "tbn")
 
 # extinct only
-ve <- v %>% filter(name %in% extinct) %>% filter(variable == "PLEI") %>% map_df(replace_na, 0) %>%  mutate(status = "victim")
+ve <- v %>% filter(name %in% extinct) %>% filter(variable == "PLEI") %>% map_df(replace_na, 0) %>%  mutate(status = "extinct")
 # survivors only
 vs <- v %>% filter(name %in% survivors) %>% map_df(replace_na, 0) %>% mutate(status = "survivor")
 
 v <- rbind(vs, ve)
+v$variable <- factor(v$variable, levels = c("PLEI", "HOLO", "MOD"))
 
 ### NOTES ON FOREGROUND/BACKGROUND SELECTION ####   
     # combination of fore and background hvms depends on the biological question. 
