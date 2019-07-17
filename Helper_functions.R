@@ -1,9 +1,10 @@
 #__________ Helper functions ______________________
 #__________ by Anikó B. Tóth ______________________
 
-require(sp)
-require(hypervolume)
-require(tidyverse)
+# Analysis script loads these packages
+  # require(sp)
+  # require(hypervolume)
+  # require(tidyverse)
 
 
 ############### DATA MANIPULATION #########

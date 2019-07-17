@@ -8,10 +8,12 @@
 # This script can be used to generate hypervolume calculations for species in PA (presence-absence table) in various different ways. 
 # The hypervolumes are used to calculate geographic and climate envelopes for species occurrences and backgrounds. 
 
-library(hypervolume)
+# This package is loaded by the analysis script. 
+ # library(hypervolume)
 
 # Terminology: 
 # tbn timebins: MOD (Recent), HOLO (Holocene), PLEI (end-Pleistocene)
+# type: geog (geographic), clim (climatic)
 # sp species  : list of species names across the entire dataset
 # hvm         : hypervolume
 
