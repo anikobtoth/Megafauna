@@ -32,7 +32,7 @@ md <- 21000 # maximum date included (note that climate is not available for site
 mbd <- 1000 # minimum body mass in grams
 mlat <- 60  # maximum latitude
 hr <- 2000  # Holocene-Recent cutoff
-co <- 5     # minimum number of species per site
+co <- 3     # minimum number of species per site
 occ <- 1     # minimum number of occurrences per species
 
 x <- filter(x, MeanAge <= md &           # filter out sites older than md
@@ -119,7 +119,7 @@ PA <- PA[c("MOD", "HOLO", "PLEI")]  # put time intervals in order.
     # OPTION 1: with hypervolumes ####
         # **THIS TAKES A LONG TIME TO RUN**  
         # source("Hypervolume_script.R")
-        # it can also be partially run by a careful user -- intermediate named objects are reused throughout.
+        # it can also be partially run by a careful user -- intermediate named objects are recycled throughout.
         # There is a block of code at the bottom that produces the desired product v even if you only have some of the hypervolumes calculated.
     # OPTION 2: with convex hulls ####
           # total area by timebin

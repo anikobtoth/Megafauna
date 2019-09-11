@@ -402,7 +402,7 @@ plot_grid(gtA, gtB, gtC, ncol = 1, align = "hv", labels = "AUTO", label_x = 0.13
   # Replot Figure 3
   
   #### FIGURE S12 ############
-  # Run Figure 4 with y = abs(median) in the ggplot aes() mapping call.
+  # Run Figure 3B with y = abs(median) in the ggplot aes() mapping call.
   
   #### FIGURE S13 and S15 ############
   # Run Analysis_Script.R with fml.sitedat <- sd.clim4k
