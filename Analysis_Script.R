@@ -13,7 +13,7 @@ if(!require(tidyverse)) install.packages("tidyverse")
 library(tidyverse)
 
 p <- c("combinat", "reshape2", "sp", "hypervolume", 
-       "cowplot", "grid", "gtable")
+       "cowplot", "grid", "gtable", "EcoSimR")
 
 sapply(p, require, character.only = TRUE) %>% `[`(!.) %>% names %>% map(install.packages)
 sapply(p, require, character.only = TRUE)
