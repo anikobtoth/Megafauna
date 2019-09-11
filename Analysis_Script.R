@@ -9,8 +9,11 @@
   # such as minimum site richness (co) and subsample size (ss1), among others.
 
 ######## Environment ################
-p <- c("combinat", "reshape2", "sp", "hypervolume","hypervolume", 
-       "cowplot", "grid", "gtable", "tidyverse")
+if(!require(tidyverse)) install.packages("tidyverse")
+library(tidyverse)
+
+p <- c("combinat", "reshape2", "sp", "hypervolume", 
+       "cowplot", "grid", "gtable")
 
 sapply(p, require, character.only = TRUE) %>% `[`(!.) %>% names %>% map(install.packages)
 sapply(p, require, character.only = TRUE)
